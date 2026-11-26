@@ -49,10 +49,11 @@ label{display:block;font-size:.85rem;color:var(--mute);margin:10px 0 4px}
 .legend{display:flex;gap:4px;align-items:center;justify-content:flex-end;margin-top:8px;font-size:.75rem;color:var(--mute)}
 .legend .cell{width:12px;aspect-ratio:1}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
-.tabs button{flex:1;padding:10px 4px;border-radius:10px;color:var(--mute);font-weight:600;font-size:.85rem}
+.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;overflow-x:auto;scrollbar-width:none;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+.tabs button{flex:1 0 auto;padding:10px 12px;border-radius:10px;color:var(--mute);font-weight:600;font-size:.8rem}
 .tabs button.act{color:var(--acc);background:var(--g0)}
 .hide{display:none}
+textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:16px;resize:vertical}a{color:var(--acc);font-weight:600;margin-right:16px}summary{font-weight:700;cursor:pointer;list-style-position:inside}details.card[open] summary{margin-bottom:8px}.ol{margin:0;padding-left:20px}.ol li{margin:4px 0}
 .item{display:flex;gap:8px;margin-bottom:8px}
 .msg{font-size:.85rem;margin-top:8px;color:var(--mute)}
 .chart{display:flex;align-items:flex-end;gap:6px;height:90px}
@@ -86,6 +87,14 @@ label{display:block;font-size:.85rem;color:var(--mute);margin:10px 0 4px}
   <div class="card"><h2>Study hours, last 7 days</h2><div class="chart" id="studyChart"></div><div style="height:20px"></div></div>
 </section>
 
+<section id="v-workout" class="hide"><div id="wk"></div></section>
+
+<section id="v-ssb" class="hide"><div id="sb"></div></section>
+
+<section id="v-defence" class="hide"><div id="df"></div></section>
+
+<section id="v-diet" class="hide"><div id="dt"></div></section>
+
 <section id="v-settings" class="hide">
   <h1>Settings</h1>
   <div class="card"><h2>Habits</h2><div id="hedit"></div>
@@ -98,7 +107,7 @@ label{display:block;font-size:.85rem;color:var(--mute);margin:10px 0 4px}
 </section>
 </main>
 
-<nav class="tabs"><button data-v="today" class="act">Today</button><button data-v="streaks">Streaks</button><button data-v="settings">Settings</button></nav>
+<nav class="tabs"><button data-v="today" class="act">Today</button><button data-v="streaks">Streaks</button><button data-v="workout">Workout</button><button data-v="ssb">SSB</button><button data-v="defence">Defence</button><button data-v="diet">Diet</button><button data-v="settings">Settings</button></nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" defer></script>
 <script>
@@ -295,13 +304,341 @@ async function push() {
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
 
+/* ---------- Workout plan (12 weeks, 3 phases) ---------- */
+const PH = ["Foundation", "Build", "Strength"];
+const PUSH = [
+  ["Incline push-ups, hands on table or stairs: 3 x 8-10", "Plank on knees or toes: 3 x 20 s", "Slow negative push-ups from knees: 2 x 5"],
+  ["Low incline push-ups, hands on chair or bed: 3 x 8-10", "Knee push-ups: 3 x 8", "Slow negative full push-ups (5 s down): 3 x 4"],
+  ["Full push-ups: 4 x 3-5 (rest 90 s, finish extra reps from knees)", "Knee push-ups: 2 x 10", "Plank: 3 x 45 s"]
+];
+const PULL = [
+  ["Dead hang on the bar: 4 x 15-20 s", "Scapular pulls (hang, pull shoulders down): 3 x 8", "Jump-up negatives (lower for 5 s): 3 x 3"],
+  ["Dead hang: 3 x 30 s", "Jump-up negatives (lower for 5 s): 4 x 4", "Inverted rows under a sturdy table: 3 x 8"],
+  ["Negative pull-ups (lower for 5-8 s): 4 x 5", "Chin-up top hold: 3 x 10 s", "Inverted rows: 3 x 10, then try 1 full pull-up"]
+];
+const LEGS = [
+  ["Bodyweight squats: 3 x 15", "Reverse lunges: 3 x 8 each leg", "Glute bridges: 3 x 15", "Calf raises: 3 x 20"],
+  ["Squats: 4 x 15", "Walking lunges: 3 x 10 each leg", "Stair step-ups: 3 x 10 each leg", "Wall sit: 3 x 30 s"],
+  ["Jump squats: 4 x 10", "Walking lunges: 4 x 12 each leg", "Burpees: 3 x 6", "Wall sit: 3 x 45 s"]
+];
+const CORE = [
+  ["Plank: 3 x 20 s", "Dead bug: 3 x 8 each side", "Bicycle crunches: 3 x 15"],
+  ["Plank: 3 x 35 s", "Leg raises: 3 x 8", "Mountain climbers: 3 x 20"],
+  ["Plank: 3 x 60 s", "Leg raises: 3 x 12", "Flutter kicks: 3 x 30"]
+];
+const RUN = {
+  int: [["Jog 2 min, walk 1 min: repeat 6 times"], ["Run 3 min, jog 2 min: repeat 5 times"], ["Run fast 1 min, jog 1 min: repeat 8 times"]],
+  easy: [["Easy jog or walk-jog: 15 min"], ["Easy jog at talking pace: 20 min"], ["Easy jog at talking pace: 25-30 min"]],
+  long: [["Run 2 km nonstop (walk briefly if needed)"], ["Run 3 km steady"], ["Run 4 km steady"]]
+};
+const SCHED = {
+  1: ["Interval run", ["int"], "Push strength", ["push"]],
+  2: ["Easy run", ["easy"], "Pull strength", ["pull"]],
+  3: ["Easy run", ["easy"], "Legs and core", ["legs", "core"]],
+  4: ["Interval run", ["int"], "Push strength", ["push"]],
+  5: ["Easy run", ["easy"], "Pull and core", ["pull", "core"]],
+  6: ["Long run", ["long"], "Legs strength", ["legs"]],
+  0: ["Rest day", ["rest"], null, []]
+};
+const DAYN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function items(k, p) {
+  if (k === "rest") return ["Easy 30 min walk, light stretching, sleep early"];
+  return ({push: PUSH, pull: PULL, legs: LEGS, core: CORE}[k] || RUN[k])[p].slice();
+}
+function weekInfo() {
+  const t = new Date(); t.setHours(0,0,0,0);
+  if (!S.plan || !S.plan.start) { S.plan = {start: iso(t)}; save(); }
+  const w = Math.max(1, Math.floor((t - new Date(S.plan.start + "T00:00:00")) / 6048e5) + 1);
+  return {w, p: Math.min(2, Math.floor((w - 1) / 4))};
+}
+function renderWork() {
+  const root = $("wk"); if (!root) return;
+  if (!S.tests) S.tests = [];
+  const {w, p} = weekInfo(), t = new Date(), d = day(iso(t)); if (!d.w) d.w = [];
+  const [amN, amK, pmN, pmK] = SCHED[t.getDay()];
+  const blk = (id, label, name, keys) => !name ? "" :
+    `<div class="card"><h2>${label}: ${name}</h2>` +
+    keys.flatMap(k => items(k, p)).map((x, i) =>
+      `<button class="habit ${d.w.includes(id + i) ? "on" : ""}" data-w="${id}${i}"><i class="box"></i><span class="nm">${esc(x)}</span></button>`).join("") + `</div>`;
+  const wk = [1,2,3,4,5,6,0].map(n => `<div class="row" style="padding:5px 0${n === t.getDay() ? ";font-weight:700" : ""}"><span style="width:44px">${DAYN[n]}</span><span class="sp">${SCHED[n][0]}${SCHED[n][2] ? " + " + SCHED[n][2] : ""}</span></div>`).join("");
+  const last = S.tests.slice(-3).reverse().map(x => `<div class="sub" style="padding:3px 0">${x.d}: push-ups ${x.push}, pull-ups ${x.pull}, hang ${x.hang}s, run ${x.run} km</div>`).join("") || `<div class="sub">No tests yet. Do your first one this week.</div>`;
+  root.innerHTML =
+    `<h1>Workout</h1><div class="sub">Week ${w}${w > 12 ? " (plan complete: keep Strength phase and retest)" : " of 12"}, phase ${p + 1}: ${PH[p]}</div>
+    <div class="card"><div class="sub">Warm up 5 min before every session (arm circles, leg swings, light marching). Stretch 5 min after. Stop if you feel sharp pain, dizziness or chest pain.</div></div>` +
+    blk("am", "Morning", amN, amK) + blk("pm", "Evening", pmN, pmK) +
+    `<div class="card"><h2>This week</h2>${wk}</div>
+    <div class="card"><h2>Fitness test (every 4 weeks)</h2>
+      <div class="cols"><div><label style="margin-top:0">Full push-ups</label><input id="tPush" type="number" inputmode="numeric" min="0"></div>
+      <div><label style="margin-top:0">Full pull-ups</label><input id="tPull" type="number" inputmode="numeric" min="0"></div>
+      <div><label>Dead hang (sec)</label><input id="tHang" type="number" inputmode="numeric" min="0"></div>
+      <div><label>Run nonstop (km)</label><input id="tRun" type="number" inputmode="decimal" step="0.1" min="0"></div></div>
+      <div style="margin-top:12px"><button class="btn" id="tSave">Save test</button></div><div style="margin-top:10px">${last}</div></div>
+    <div class="card"><button class="btn alt" id="wRestart">Restart plan from today</button></div>`;
+}
+$("wk").onclick = e => {
+  const b = e.target.closest("[data-w]");
+  if (b) { const d = day(iso(new Date())); d.w = d.w || []; const id = b.dataset.w; d.w = d.w.includes(id) ? d.w.filter(x => x !== id) : [...d.w, id]; save(); renderWork(); return; }
+  if (e.target.id === "tSave") {
+    const n = id => Math.max(0, parseFloat($(id).value) || 0);
+    S.tests.push({d: iso(new Date()), push: n("tPush"), pull: n("tPull"), hang: n("tHang"), run: n("tRun")});
+    save(); renderWork();
+  }
+  if (e.target.id === "wRestart" && confirm("Restart the 12-week plan from today?")) { S.plan = {start: iso(new Date())}; save(); renderWork(); }
+};
+
+/* ---------- SSB roadmap ---------- */
+const SSB = [
+  {t: "Phase 1: Foundation (weeks 1-4)", k: [
+    "Read the official notification for your entry (NDA, CDS, AFCAT, TES or other) and note the stages and dates",
+    "Learn the 15 Officer Like Qualities (OLQs) and rate yourself honestly on each",
+    "Write your life story on one page: family, school, hobbies, achievements, failures",
+    "Read a newspaper daily: note 3 headlines and your own opinion on each",
+    "Speak English for 5 minutes daily (mirror or voice recording)",
+    "Learn the basics: ranks, structure of the Army, Navy and Air Force, major regiments and commands"]},
+  {t: "Phase 2: Screening and psychology tests (weeks 5-8)", k: [
+    "OIR: practise verbal and non-verbal reasoning for 20 min, 3 days a week",
+    "PPDT: look at a picture for 30 s, write a story in 4 min, narrate it in 1 min",
+    "TAT: write one story a day from a picture in 4 min, with a positive hero who takes action",
+    "WAT: write sentences for 20 words a day at 15 s each, then review them for positivity",
+    "SRT: solve 15 situations in 10 min, keeping answers practical and quick",
+    "SD: write short paragraphs on what your parents, teachers, friends and you think of you, and what you want to improve"]},
+  {t: "Phase 3: GTO tasks and interview (weeks 9-12)", k: [
+    "Learn the GTO tasks: group discussion, group planning exercise, progressive group task, half group task, individual obstacles, command task, lecturette, final group task",
+    "Hold a group discussion with friends once a week: listen, wait your turn, add a clear point",
+    "Prepare 10 lecturette topics and give each as a 3-minute talk",
+    "Prepare personal interview answers: family, studies, hobbies, strengths, weaknesses, why defence",
+    "Revise current affairs from the last 6 months with short notes",
+    "Practise the obstacle and fitness basics from your Workout plan"]},
+  {t: "Phase 4: Mocks and polish (weeks 13-16)", k: [
+    "Do a full mock SSB day with friends, seniors or a coaching mock",
+    "Record yourself answering interview questions and watch it back",
+    "Ask two people who know you well for honest feedback on your strengths and weaknesses",
+    "Fix your sleep schedule, health check and documents list",
+    "Re-read your life story and SD so every answer matches and is honest",
+    "Do a last revision, then rest well before the call letter"]}
+];
+const SSB_DAILY = {
+  1: "WAT: 20 words, 15 s each, then review for positivity",
+  2: "TAT: one picture story in 4 min, then review",
+  3: "SRT: 15 situations in 10 min",
+  4: "SD: rewrite one paragraph (parents, teachers, friends, self or goals)",
+  5: "Lecturette: a 3-minute talk on one topic, record it",
+  6: "Group discussion or mock interview questions with a friend, or OIR for 20 min",
+  0: "Review your notebook and plan next week"
+};
+const OLQ = ["Effective intelligence", "Reasoning ability", "Organising ability", "Power of expression", "Social adaptability", "Cooperation", "Sense of responsibility", "Initiative", "Self-confidence", "Speed of decision", "Ability to influence a group", "Liveliness", "Determination", "Courage", "Stamina"];
+function renderSsb() {
+  const root = $("sb"); if (!root) return;
+  if (!S.ssb) S.ssb = {done: []};
+  const done = S.ssb.done, all = SSB.reduce((n, p) => n + p.k.length, 0);
+  const pct = Math.round(done.length / all * 100);
+  root.innerHTML =
+    `<h1>SSB roadmap</h1><div class="sub">${done.length} of ${all} steps done</div><div class="bar"><i style="width:${pct}%"></i></div>
+    ${planHtml()}
+    <div class="card"><h2>Today's 20 minutes</h2><div>${esc(SSB_DAILY[new Date().getDay()])}</div><div class="sub" style="margin-top:6px">Fits your 8:30 PM SSB slot. Newspaper and defence awareness are already in your daily habits.</div></div>` +
+    SSB.map((p, pi) => {
+      const n = p.k.filter((_, i) => done.includes(`s${pi}${i}`)).length;
+      return `<div class="card"><h2>${p.t} <span class="sub">${n}/${p.k.length}</span></h2>` +
+        p.k.map((x, i) => `<button class="habit ${done.includes(`s${pi}${i}`) ? "on" : ""}" data-s="s${pi}${i}"><i class="box"></i><span class="nm">${esc(x)}</span></button>`).join("") + `</div>`;
+    }).join("") +
+    `<details class="card"><summary>The 5-day SSB process</summary><ol class="ol">
+      <li>Day 1, screening: OIR (intelligence test) and PPDT (picture story and group discussion). Only those who clear it stay.</li>
+      <li>Day 2, psychology: TAT, WAT, SRT and Self Description.</li>
+      <li>Days 3 and 4, GTO: group tasks, obstacles, command task and lecturette. Personal interviews take place across these days.</li>
+      <li>Day 5, conference: the assessors meet you together and the result is announced.</li></ol>
+      <div class="sub" style="margin-top:8px">Details can change by entry and year, so confirm on the official notification.</div></details>
+    <details class="card"><summary>15 Officer Like Qualities (OLQs)</summary><ol class="ol">${OLQ.map(x => `<li>${x}</li>`).join("")}</ol></details>
+    <div class="card"><div class="sub">SSB tests your real personality, not memorised answers. Stay honest, calm and consistent across every test.</div></div>`;
+}
+$("sb").onclick = e => {
+  const P = S.ssb.plan;
+  if (e.target.id === "pStart") { S.ssb.plan = {start: iso(new Date()), done: []}; save(); return renderSsb(); }
+  if (e.target.id === "pRestart") { if (confirm("Restart the 30-day plan from today?")) { S.ssb.plan = {start: iso(new Date()), done: []}; save(); renderSsb(); } return; }
+  const pb = e.target.closest("[data-p]");
+  if (pb) { const i = +pb.dataset.p; P.done = P.done.includes(i) ? P.done.filter(x => x !== i) : [...P.done, i]; save(); return renderSsb(); }
+  const b = e.target.closest("[data-s]"); if (!b) return;
+  const id = b.dataset.s, dn = S.ssb.done;
+  S.ssb.done = dn.includes(id) ? dn.filter(x => x !== id) : [...dn, id];
+  save(); renderSsb();
+};
+
+/* ---------- 30-day SSB plan ---------- */
+const PLAN30 = [
+  "Read the official notification for your entry and note eligibility and dates",
+  "Learn the 15 OLQs and write one real example from your life for three of them",
+  "Write your life story on one page: family, school, hobbies, wins, failures",
+  "OIR: 20 min of verbal reasoning, then check answers",
+  "OIR: 20 min of non-verbal reasoning (series, odd one out, patterns)",
+  "PPDT: three pictures, 4-minute stories with a positive hero, narrate each in 1 min",
+  "Rest. Review your notebook and read one editorial",
+  "TAT: two stories, 4 min each, each with a clear outcome",
+  "WAT: 20 words at 15 s each, rewrite any negative sentence",
+  "SRT: 15 situations in 10 min with practical, decisive answers",
+  "SD: write what your parents think of you, honestly",
+  "SD: write what your teachers and friends think, and compare with day 11",
+  "SD: write your own strengths, weaknesses and two improvements you are working on",
+  "Rest. Revisit three earlier answers and fix them",
+  "Timed mini mock: 1 TAT, 10 WAT, 5 SRT",
+  "Learn all GTO tasks and write two lines on each",
+  "Group discussion with friends: one topic, 10 min, note any interrupting",
+  "Lecturette: 3-minute talk on one topic, record it",
+  "Lecturette: a second topic, watch day 18's video and cut filler words",
+  "GPE: draw a campus map and plan a rescue in 5 min",
+  "Do your Workout session and practise helping a teammate in a task",
+  "Rest. Revise current affairs of the last 3 months",
+  "Interview: prepare facts on family, school, hobbies, best and worst moments",
+  "Interview: prepare a 2-minute 'why defence' answer in your own words",
+  "Interview: answer 10 current affairs and defence awareness questions aloud",
+  "Interview: prepare your CSE subjects and hobbies with three follow-up questions each",
+  "Record a 15-minute mock interview with a friend, review honesty and body language",
+  "Full mock, part 1: OIR, PPDT, TAT, WAT, SRT, SD",
+  "Full mock, part 2: group discussion, lecturette, interview",
+  "Review mistakes, plan the next 30 days, sleep well"
+];
+function planHtml() {
+  const P = S.ssb.plan || (S.ssb.plan = {start: null, done: []});
+  if (!P.start) return `<div class="card"><h2>30-day SSB plan</h2><div class="sub" style="margin-bottom:10px">One focused task a day, about 40 minutes.</div><button class="btn" id="pStart">Start Day 1 today</button></div>`;
+  const t = new Date(); t.setHours(0,0,0,0);
+  const n = Math.min(30, Math.max(1, Math.floor((t - new Date(P.start + "T00:00:00")) / 864e5) + 1));
+  const row = i => `<button class="habit ${P.done.includes(i) ? "on" : ""}" data-p="${i}"><i class="box"></i><span class="nm"><b>Day ${i + 1}.</b> ${esc(PLAN30[i])}</span></button>`;
+  return `<div class="card"><h2>Day ${n} of 30</h2>${row(n - 1)}<div class="sub">${P.done.length} of 30 days done</div></div>
+    <details class="card"><summary>All 30 days</summary>${PLAN30.map((_, i) => row(i)).join("")}<div style="margin-top:10px"><button class="btn alt" id="pRestart">Restart plan</button></div></details>`;
+}
+
+/* ---------- Defence tab ---------- */
+const HIST = [
+  "Param Vir Chakra, India's highest gallantry award, was instituted in 1950. Its first recipient was Major Somnath Sharma, for 1947.",
+  "The Indian Air Force was established on 8 October 1932, which is why Air Force Day is on that date.",
+  "Navy Day on 4 December remembers Operation Trident in 1971, when Indian missile boats struck Karachi harbour.",
+  "Pakistan's forces surrendered in Dhaka on 16 December 1971, ending the war that led to the birth of Bangladesh.",
+  "Kargil Vijay Diwas on 26 July marks the end of Operation Vijay in 1999.",
+  "Operation Meghdoot in 1984 secured the Siachen Glacier, often called the world's highest battlefield.",
+  "The Madras Regiment, raised in 1758, is the oldest infantry regiment of the Indian Army.",
+  "Sam Manekshaw became India's first Field Marshal in 1973. K. M. Cariappa was the second, in 1986.",
+  "At Saragarhi in 1897, 21 soldiers of the 36th Sikhs held a post against thousands of Afghan tribesmen.",
+  "At Rezang La in 1962, Major Shaitan Singh and C Company of 13 Kumaon fought to the last. He received the Param Vir Chakra.",
+  "The Indian Military Academy in Dehradun began in 1932. Its first batch is known as the Pioneers.",
+  "The National Defence Academy at Khadakwasla, Pune, is the joint training academy of all three services.",
+  "DRDO was founded in 1958. Its missile programme from 1983, led by Dr A. P. J. Abdul Kalam, produced Agni, Prithvi, Akash, Trishul and Nag.",
+  "BrahMos takes its name from the Brahmaputra and Moskva rivers, reflecting its Indo-Russian origin.",
+  "INS Vikrant, commissioned in September 2022, is India's first indigenous aircraft carrier. It was built at Cochin Shipyard.",
+  "India's first Chief of Defence Staff, General Bipin Rawat, took office on 1 January 2020 to improve coordination between the services.",
+  "The Param Vir Chakra was designed by Savitri Khanolkar, who was born in Switzerland and made India her home.",
+  "Chhatrapati Shivaji Maharaj is called the Father of the Indian Navy for building a strong maritime force in the 1600s.",
+  "The Indian Navy's motto, Sam No Varunah, is a prayer to the sea god Varuna to be kind to us.",
+  "Operation Vijay in December 1961 ended Portuguese rule in Goa.",
+  "The Territorial Army was formed in 1949 so that civilians could serve part time in the defence of the country.",
+  "In 1965, Havildar Abdul Hamid destroyed several Pakistani tanks at Asal Uttar and was awarded the Param Vir Chakra.",
+  "Air Marshal Subroto Mukerjee became the first Indian chief of the Air Force in 1954.",
+  "The Indian Coast Guard was formally established in 1978 to protect India's maritime zones.",
+  "Flying Officer Avani Chaturvedi became the first Indian woman to fly a fighter jet solo, in a MiG-21 Bison in 2018.",
+  "Air Marshal Padmavathy Bandopadhyay became the first woman Air Marshal in the Indian Air Force, in 2004.",
+  "In 2020 the Supreme Court ordered permanent commission for women Short Service officers in the Army.",
+  "Women became eligible for the National Defence Academy in 2022 after a Supreme Court order in 2021.",
+  "INS Vikramaditya, a modified Russian carrier once named Admiral Gorshkov, joined the Navy in 2013."
+];
+const NEWS = [
+  "11 Nov: the Defence Ministry signed a Rs 498.58 crore contract with Cochin Shipyard to refit and re-power the frigate INS Betwa.",
+  "2 Nov: contracts worth Rs 53,866.5 crore were signed with GRSE and Goa Shipyard for eight Next Generation Corvettes.",
+  "Nov: a Rs 770 crore contract with BEL for Improved Low Level Light Weight Radars, and Rs 1,577 crore for loiter munitions from Tata Advanced Systems and NIBE.",
+  "11 to 19 Nov: Sea Vigil-26, the fifth pan-India coastal defence exercise, coordinated by the Indian Navy.",
+  "3 Nov: the Navy's Indo-Pacific Regional Dialogue 2026 began in New Delhi.",
+  "Nov: the Indian Army is training 600 Civil Defence Master Trainers in a pilot with the Home Ministry.",
+  "9 Oct: the Navy was set to commission the indigenous anti-submarine shallow water craft Mangrol."
+];
+const OPP = [
+  ["Army SSC (Tech) Women", "Final-year BE/B.Tech students can apply. The latest cycle (68th course, April 2027) had 31 vacancies for women, age 20 to 27, selection by SSB with no written exam. You join as a Lieutenant."],
+  ["Navy SSC Executive (IT)", "Open to unmarried men and women with 60% in BE/B.Tech in CSE or IT. For final-year students, marks up to the fifth semester are used for SSB shortlisting. The latest cycle had 15 vacancies for the January 2027 course at Ezhimala."],
+  ["Air Force: AFCAT", "Flying, Ground Duty Technical and Non-Technical branches for men and women, held twice a year. AFCAT 1/2027 registration ran 12 Nov to 11 Dec 2026. A GATE score entry also exists for technical branches."],
+  ["Army University Entry Scheme", "For pre-final and final-year BE/B.Tech students with 60% aggregate. You are selected in college and commissioned after your degree. Check each year's notification for women's eligibility."],
+  ["CDS and NDA", "CDS needs a degree (final-year students can apply) and women's seats are limited, so check the UPSC notice. NDA is only for those still within its age limit (16.5 to 19.5) who are 12th pass."],
+  ["DRDO and defence companies", "Civilian technical careers: DRDO, BEL, HAL, BDL and the shipyards hire CSE and electronics graduates, often through GATE or their own tests."]
+];
+const TL = [
+  "Now (2nd year): keep your CGPA above 60% with a margin, build fitness, run the 30-day SSB plan and read the notifications.",
+  "3rd year: do a mock SSB, finish the Workout plan, check UES and NCC options and take AFCAT-style practice.",
+  "Final year: apply to Army SSC (Tech) Women, Navy SSC IT and AFCAT as they open, and write GATE as a backup."
+];
+function renderDef() {
+  const root = $("df"); if (!root) return;
+  const t = new Date(), d = day(iso(t)), doy = Math.floor((t - new Date(t.getFullYear(), 0, 0)) / 864e5);
+  root.innerHTML = `<h1>Defence</h1>
+    <div class="card"><h2>Did you know</h2><div>${esc(HIST[doy % HIST.length])}</div></div>
+    <div class="card"><h2>Current affairs log</h2><div class="sub" style="margin-bottom:8px">Write 3 headlines and your own opinion on each.</div>
+      <textarea id="ca" rows="5" placeholder="1. ...">${esc(d.ca || "")}</textarea>
+      <div style="margin-top:10px"><a href="https://pib.gov.in/newsite/pmreleases.aspx?mincode=33" target="_blank" rel="noopener">PIB Defence</a><a href="https://mod.gov.in" target="_blank" rel="noopener">MoD</a></div></div>
+    <details class="card" open><summary>Recent defence news (as of 26 Nov 2026)</summary><ul class="ol">${NEWS.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>
+    <h2 style="margin:18px 0 0">Your opportunities</h2>
+    ${OPP.map(o => `<details class="card"><summary>${esc(o[0])}</summary><div>${esc(o[1])}</div></details>`).join("")}
+    <div class="card"><h2>Your timeline</h2><ul class="ol">${TL.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+      <div class="sub" style="margin-top:8px">Ages, vacancies and rules change every cycle. Always confirm on the official notification.</div></div>`;
+}
+$("df").oninput = e => { if (e.target.id === "ca") { day(iso(new Date())).ca = e.target.value.slice(0, 600); save(); } };
+
+/* ---------- Diet tab ---------- */
+function renderDiet() {
+  const root = $("dt"); if (!root) return;
+  if (!S.body) S.body = {height: 163, gkg: 1.2, fiber: 25};
+  const B = S.body, k = iso(new Date()), d = day(k), f = d.f || (d.f = {});
+  const wts = () => Object.keys(S.days).filter(x => S.days[x].wt > 0).sort().map(x => ({d: x, kg: S.days[x].wt}));
+  if (!B.seeded) { B.seeded = 1; if (!wts().length) d.wt = 66; save(); }
+  const ws = wts(), last = ws.length ? ws[ws.length - 1].kg : 0;
+  const bmi = last && B.height ? (last / Math.pow(B.height / 100, 2)).toFixed(1) : "-";
+  const pT = Math.round((d.wt || last || 0) * B.gkg), fT = B.fiber;
+  const pct = (v, t) => Math.min(100, t ? v / t * 100 : 0);
+  const key = (n, f2) => { const x = new Date(); x.setDate(x.getDate() - n); const dd = S.days[iso(x)]; return dd && dd.f && dd.f[f2]; };
+  let streak = 0, n = key(0, "nosugar") ? 0 : 1;
+  while (key(n, "nosugar")) { streak++; n++; }
+  let m30 = 0; for (let i = 0; i < 30; i++) if (key(i, "nosugar")) m30++;
+  const src = c => { let t = 0; for (let i = 0; i < 7; i++) if (key(i, c)) t++; return t; };
+  const tog = (id, label) => `<button class="habit ${f[id] ? "on" : ""}" data-f="${id}"><i class="box"></i><span class="nm">${label}</span></button>`;
+  const rec = ws.slice(-10), mn = Math.min(...rec.map(x => x.kg)) - 1, mx = Math.max(...rec.map(x => x.kg)) + 1;
+  const chart = rec.length > 1 ? `<div class="chart">${rec.map(x => `<div style="height:${(x.kg - mn) / (mx - mn) * 100}%"><small>${x.kg}</small></div>`).join("")}</div><div style="height:22px"></div>` : `<div class="sub">Log your weight on a few different days to see the chart.</div>`;
+  const chg = ws.length > 1 ? (last - ws[0].kg).toFixed(1) : null;
+  root.innerHTML = `<h1>Diet</h1><div class="sub">Weight, food sources, sugar and protein</div>
+    <div class="card"><h2>Body</h2><div class="cols">
+      <div><label style="margin-top:0">Height (cm)</label><input id="dH" type="number" inputmode="decimal" value="${B.height}"></div>
+      <div><label style="margin-top:0">Weight today (kg)</label><input id="dW" type="number" inputmode="decimal" step="0.1" value="${d.wt || ""}"></div></div>
+      <div class="sub" style="margin-top:10px">BMI ${bmi}${chg !== null ? `. Change since your first record: ${chg > 0 ? "+" : ""}${chg} kg` : ""}</div></div>
+    <div class="card"><h2>Today's food</h2>${tog("home", "Home food")}${tog("college", "College food")}${tog("outside", "Outside food")}${tog("nosugar", "No sugar today")}</div>
+    <div class="cols">
+      <div class="card"><label style="margin-top:0">Protein (g)</label><input id="dP" type="number" inputmode="numeric" value="${f.p || ""}"><div class="bar"><i style="width:${pct(f.p || 0, pT)}%"></i></div><div class="sub" style="margin-top:6px">Goal ${pT} g${f.p >= pT ? ", done" : ""}</div></div>
+      <div class="card"><label style="margin-top:0">Fiber (g)</label><input id="dF" type="number" inputmode="numeric" value="${f.fb || ""}"><div class="bar"><i style="width:${pct(f.fb || 0, fT)}%"></i></div><div class="sub" style="margin-top:6px">Goal ${fT} g${f.fb >= fT ? ", done" : ""}</div></div></div>
+    <div class="card"><div class="stats"><div class="stat"><b>${streak}</b><small>No-sugar streak</small></div><div class="stat"><b>${m30}</b><small>No-sugar, 30 days</small></div><div class="stat"><b>${src("home")}/${src("college")}/${src("outside")}</b><small>Home/college/outside, 7 days</small></div></div></div>
+    <div class="card"><h2>Weight, last records</h2>${chart}</div>
+    <div class="card"><h2>Your targets</h2><div class="cols"><div><label style="margin-top:0">Protein (g per kg)</label><input id="dGk" type="number" inputmode="decimal" step="0.1" value="${B.gkg}"></div>
+      <div><label style="margin-top:0">Fiber goal (g)</label><input id="dFt" type="number" inputmode="numeric" value="${B.fiber}"></div></div>
+      <div class="sub" style="margin-top:10px">Active people are often advised about 1.2 to 1.6 g of protein per kg. A dietitian can set exact targets for you.</div></div>
+    <div class="card"><div class="sub">Aim for slow, steady change and enough food for your training. Defence medicals check weight for height. If you feel dizzy, very tired or your periods change, talk to a doctor.</div></div>`;
+}
+$("dt").onclick = e => {
+  const b = e.target.closest("[data-f]"); if (!b) return;
+  const d = day(iso(new Date())), f = d.f || (d.f = {});
+  f[b.dataset.f] = !f[b.dataset.f]; save(); renderDiet();
+};
+$("dt").onchange = e => {
+  const id = e.target.id, v = parseFloat(e.target.value) || 0, d = day(iso(new Date())), B = S.body, f = d.f || (d.f = {});
+  if (id === "dH") B.height = v || 163;
+  else if (id === "dW") d.wt = Math.max(0, Math.min(300, v));
+  else if (id === "dGk") B.gkg = v || 1.2;
+  else if (id === "dFt") B.fiber = v || 25;
+  else if (id === "dP") f.p = Math.max(0, v);
+  else if (id === "dF") f.fb = Math.max(0, v);
+  else return;
+  save(); renderDiet();
+};
+
 /* ---------- Tabs & boot ---------- */
-function renderAll() { renderToday(); renderStreaks(); renderSettings(); }
+function renderAll() { renderToday(); renderStreaks(); renderWork(); renderSsb(); renderDef(); renderDiet(); renderSettings(); }
 document.querySelector(".tabs").onclick = e => {
   const b = e.target.closest("button"); if (!b) return;
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("act", x === b));
-  ["today","streaks","settings"].forEach(v => $("v-" + v).classList.toggle("hide", v !== b.dataset.v));
+  ["today","streaks","workout","ssb","defence","diet","settings"].forEach(v => $("v-" + v).classList.toggle("hide", v !== b.dataset.v));
   if (b.dataset.v === "streaks") renderStreaks();
+  if (b.dataset.v === "workout") renderWork();
+  if (b.dataset.v === "ssb") renderSsb();
+  if (b.dataset.v === "defence") renderDef();
+  if (b.dataset.v === "diet") renderDiet();
   if (b.dataset.v === "settings") renderSettings();
   scrollTo(0, 0);
 };
